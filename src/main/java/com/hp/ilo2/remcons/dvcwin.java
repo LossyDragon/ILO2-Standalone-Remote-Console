@@ -9,6 +9,9 @@ import java.awt.Graphics;
 import java.awt.Image;
 import java.awt.image.MemoryImageSource;
 
+/**
+ * Digital Video Capture Window
+ */
 public class dvcwin extends Canvas implements Runnable {
     private Image offscreenImage = null;
     private Image firstImage = null;
@@ -204,7 +207,8 @@ public class dvcwin extends Canvas implements Runnable {
         while (this.updaterRunning) {
             try {
                 Thread.sleep(this.frametime);
-            } catch (InterruptedException ignored) {}
+            } catch (InterruptedException ignored) {
+            }
 
             if (repaint_it(false)) {
                 repaint();

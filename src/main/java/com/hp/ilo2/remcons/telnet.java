@@ -132,7 +132,7 @@ public class telnet extends Panel implements Runnable, MouseListener, FocusListe
                 str1 = "type" + this.ts_type;
             }
 
-            String str2 = remcons.prop.getProperty(str1 + ".program");
+            String str2 = Remcons.prop.getProperty(str1 + ".program");
             System.out.println(str1 + " = " + str2);
             if (str2 != null) {
                 str2 = percent_sub(str2);

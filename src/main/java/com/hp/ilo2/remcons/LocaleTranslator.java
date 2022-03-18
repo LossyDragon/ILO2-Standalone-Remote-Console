@@ -182,20 +182,20 @@ class LocaleTranslator {
         add_locale("de_CH", this.swiss_german + this.euro2, "Swiss (German)");
 
 
-        Enumeration propertyNames = remcons.prop.propertyNames();
+        Enumeration propertyNames = Remcons.prop.propertyNames();
         String localString;
         while (propertyNames.hasMoreElements()) {
             String currentPropName = (String)propertyNames.nextElement();
             if (currentPropName.equals("locale.override")) {
-                str2 = remcons.prop.getProperty("locale.override");
+                str2 = Remcons.prop.getProperty("locale.override");
                 System.out.println("Locale override: " + str2);
             } else if (currentPropName.startsWith("locale.windows")) {
-                this.windows = Boolean.valueOf(remcons.prop.getProperty(currentPropName));
+                this.windows = Boolean.valueOf(Remcons.prop.getProperty(currentPropName));
             } else if (currentPropName.startsWith("locale.showgui")) {
-                this.showgui = Boolean.valueOf(remcons.prop.getProperty(currentPropName));
+                this.showgui = Boolean.valueOf(Remcons.prop.getProperty(currentPropName));
             } else if (currentPropName.startsWith("locale.")) {
                 localString = currentPropName.substring(7);
-                String str3 = remcons.prop.getProperty(currentPropName);
+                String str3 = Remcons.prop.getProperty(currentPropName);
                 System.out.println("Adding user defined local for " + localString);
                 add_locale(localString, str3, localString + " (User Defined)");
             }

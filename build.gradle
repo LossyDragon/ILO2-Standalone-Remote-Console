@@ -12,27 +12,40 @@ plugins {
 
     // Apply the application plugin to add support for building a CLI application.
     id 'application'
+
+    id 'org.jetbrains.kotlin.jvm' version '1.6.10'
+    id("org.jlleitschuh.gradle.ktlint") version '10.2.1'
 }
 
 repositories {
-
+    mavenCentral()
 }
 
 dependencies {
-
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
 }
 
 application {
-    mainClass.set('Main')
+    mainClass.set('MainKt')
     applicationDefaultJvmArgs = ['-Djava.security.properties=java.security']
 }
 
-jar {
-    manifest {
-        attributes(
-            'Main-Class': 'Main'
-        )
+// jar {
+//     manifest {
+//         attributes(
+//             'Main-Class': 'Main'
+//         )
+//     }
+// }
+
+compileKotlin {
+    kotlinOptions {
+        jvmTarget = "1.8"
     }
+}
+
+ktlint {
+    disabledRules = ['no-wildcard-imports']
 }
 
 compileJava.options.encoding = 'UTF-8'

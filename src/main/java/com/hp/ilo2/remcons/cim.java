@@ -11,7 +11,9 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.security.NoSuchAlgorithmException;
 
-
+/**
+ * Common/Computer Information Model
+ */
 public class cim extends telnet implements MouseSyncListener {
     public static final int MOUSE_BUTTON_LEFT = 4;
     public static final int MOUSE_BUTTON_CENTER = 2;
