@@ -66,7 +66,7 @@ class Remcons(
 
     // private val parentFrame: Frame? = null
 
-    private lateinit var session: cim
+    private lateinit var session: Cim
     private lateinit var toolBar: Panel
     private val lt = LocaleTranslator()
     private val translate = false
@@ -164,20 +164,20 @@ class Remcons(
         }
 
         kbdLocaleLabel = Label("", 2)
-        session = cim()
+        session = Cim()
 
         if (sessionEncryptionEnabled) {
-            session.setup_encryption(sessionEncryptKey, sessionKeyIndex)
+            session.setupEncryption(sessionEncryptKey, sessionKeyIndex)
             session.setup_decryption(sessionDecryptKey)
         }
 
-        session.set_mouse_protocol(mouseMode)
+        session.setMouseProtocol(mouseMode)
 
         for (i in 0..11) {
             rndmNums[i] = (Math.random() * 4.0).toInt() * 85
         }
 
-        session.set_sig_colors(rndmNums)
+        session.setSigColors(rndmNums)
         if (debugMsg) {
             session.enable_debug()
         } else {
@@ -201,7 +201,7 @@ class Remcons(
             toolBar.add(kbdLocale)
         }
 
-        session.enable_keyboard()
+        session.enableKeyboard()
 
         updateStrings()
 
@@ -250,10 +250,10 @@ class Remcons(
     }
 
     override fun timeout(paramObject: Any) {
-        if (session.UI_dirty) {
-            session.UI_dirty = false
+        if (session.uiDirty) {
+            session.uiDirty = false
             timeoutCountdown = sessionTimeout
-            session.send_keep_alive_msg()
+            session.sendKeepAliveMsg()
         } else {
             session.send_auto_alive_msg()
             timeoutCountdown -= KEEP_ALIVE_INTERVAL
@@ -286,9 +286,9 @@ class Remcons(
     override fun itemStateChanged(paramItemEvent: ItemEvent) {
         if (paramItemEvent.source == altLock) {
             if (altLock!!.state) {
-                session.enable_altlock()
+                session.enableAltlock()
             } else {
-                session.disable_altlock()
+                session.disableAltlock()
             }
 
             session.requestFocus()
@@ -308,15 +308,15 @@ class Remcons(
 
             if (i != 0) {
                 hpMouseState = bool
-                session.mouse_mode_change(bool)
+                session.mouseModeChange(bool)
             }
         } else if (paramItemEvent.source == localCursor) {
             when (localCursor!!.selectedItem) {
-                "Default" -> session.set_cursor(0)
-                "Crosshairs" -> session.set_cursor(1)
-                "Hidden" -> session.set_cursor(2)
-                "Dot" -> session.set_cursor(3)
-                "Outline" -> session.set_cursor(4)
+                "Default" -> session.setCursor(0)
+                "Crosshairs" -> session.setCursor(1)
+                "Hidden" -> session.setCursor(2)
+                "Dot" -> session.setCursor(3)
+                "Outline" -> session.setCursor(4)
             }
         } else if (paramItemEvent.source == kbdLocale) {
             session.setLocale(kbdLocale!!.selectedItem)
@@ -355,11 +355,11 @@ class Remcons(
     override fun actionPerformed(paramActionEvent: ActionEvent) {
         when (paramActionEvent.source) {
             refresh -> {
-                session.refresh_screen()
+                session.refreshScreen()
                 session.requestFocus()
             }
             sendCtrlAltDel -> {
-                session.send_ctrl_alt_del()
+                session.sendCtrlAltDel()
                 session.requestFocus()
             }
             termSvcs -> {
