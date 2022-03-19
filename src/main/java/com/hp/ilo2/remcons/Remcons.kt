@@ -31,7 +31,6 @@ class Remcons(
             "Server 2000 SP3 or later and Windows 2003 or later. Linux users should enable the High-Performance " +
             "Mouse option once the HP iLO2 High-Performance Mouse for Linux driver is installed."
 
-
         var prop: Properties? = null
 
         private val base64 = charArrayOf(

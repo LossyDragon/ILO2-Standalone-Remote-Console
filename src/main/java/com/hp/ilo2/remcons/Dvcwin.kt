@@ -183,7 +183,7 @@ class Dvcwin(private var screenX: Int, private var screenY: Int) : Canvas(), Run
     }
 
     fun setFramerate(rate: Int) {
-        frametime = if (rate > 0)  1000 / rate else 1000 / 15
+        frametime = if (rate > 0) 1000 / rate else 1000 / 15
         println("Framerate: $rate / Frametime: $frametime")
     }
 
