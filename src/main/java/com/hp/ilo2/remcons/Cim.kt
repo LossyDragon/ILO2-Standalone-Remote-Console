@@ -16,7 +16,7 @@ import kotlin.jvm.Synchronized
 /**
  * Common/Computer Information Model
  */
-class Cim : telnet(), MouseSyncListener {
+class Cim : Telnet(), MouseSyncListener {
 
     private val colorRemapTable = IntArray(0x1000)
     private val encryptKey = ByteArray(16)
@@ -50,8 +50,8 @@ class Cim : telnet(), MouseSyncListener {
         keyIndex1 = keyIndex
     }
 
-    override fun reinit_vars() {
-        super.reinit_vars()
+    override fun reinitVars() {
+        super.reinitVars()
         disableKbd = false
         altlock = false
         dvc_reversal[0xff] = 0
@@ -61,15 +61,15 @@ class Cim : telnet(), MouseSyncListener {
         dvc_process_inhibit = false
     }
 
-    override fun enable_debug() {
+    override fun enableDebug() {
         debug_msgs = true
-        super.enable_debug()
+        super.enableDebug()
         mouseSync.enableDebug()
     }
 
-    override fun disable_debug() {
+    override fun disableDebug() {
         debug_msgs = false
-        super.disable_debug()
+        super.disableDebug()
         mouseSync.disableDebug()
     }
 
@@ -123,10 +123,10 @@ class Cim : telnet(), MouseSyncListener {
         transmit(byteArrayOf(TELNET_IAC, CMD_SET_MODE, mode))
     }
 
-    override fun mouseEntered(event: MouseEvent) {
+    override fun mouseEntered(paramMouseEvent: MouseEvent) {
         uiDirty = true
         cursor = currentCursor
-        super.mouseEntered(event)
+        super.mouseEntered(paramMouseEvent)
     }
 
     override fun serverPress(button: Int) {
@@ -167,11 +167,11 @@ class Cim : telnet(), MouseSyncListener {
     }
 
     @Synchronized
-    override fun connect(paramString1: String?, paramString2: String?, paramInt1: Int, paramInt2: Int, paramInt3: Int) {
+    override fun connect(paramString1: String, paramString2: String?, paramInt1: Int, paramInt2: Int, paramInt3: Int) {
         var paramString2 = paramString2
         val arrayOfChar = charArrayOf('ÿ', 'À')
 
-        if (encryption_enabled) {
+        if (encryptionEnabled) {
             encryptionActive = true
             paramString2 = "" + arrayOfChar[0] + "" + arrayOfChar[1] + "    " + paramString2
             sendingEncryptCommand = true
@@ -217,8 +217,9 @@ class Cim : telnet(), MouseSyncListener {
         }
 
         try {
-            out.write(arrayOfByte, 0, arrayOfByte.size)
+            out?.write(arrayOfByte, 0, arrayOfByte.size)
         } catch (ignored: IOException) {
+            /* no-op */
         }
     }
 
@@ -253,13 +254,15 @@ class Cim : telnet(), MouseSyncListener {
         } else {
             System.arraycopy(data, 0, arrayOfByte, 0, data.size)
         }
+
         try {
-            out.write(arrayOfByte, 0, arrayOfByte.size)
+            out?.write(arrayOfByte, 0, arrayOfByte.size)
         } catch (ignored: IOException) {
+            /* no-op */
         }
     }
 
-    override fun translate_key(keyEvent: KeyEvent): String {
+    override fun translateKey(keyEvent: KeyEvent): String {
         var str = ""
         val i = keyEvent.keyChar
         var j = 0
@@ -308,7 +311,7 @@ class Cim : telnet(), MouseSyncListener {
                 }
                 k = 0
             }
-            else -> str = super.translate_key(keyEvent)
+            else -> str = super.translateKey(keyEvent)
         }
 
         if (k == 1 && str.isNotEmpty() && j == 3) {
@@ -318,7 +321,7 @@ class Cim : telnet(), MouseSyncListener {
         return str
     }
 
-    override fun translate_special_key(paramKeyEvent: KeyEvent): String {
+    override fun translateSpecialKey(paramKeyEvent: KeyEvent): String {
         var str = ""
         var i = 1
         var j = 0
@@ -483,7 +486,7 @@ class Cim : telnet(), MouseSyncListener {
             }
             else -> {
                 i = 0
-                str = super.translate_special_key(paramKeyEvent)
+                str = super.translateSpecialKey(paramKeyEvent)
             }
         }
 
@@ -500,7 +503,7 @@ class Cim : telnet(), MouseSyncListener {
         return str
     }
 
-    override fun translate_special_key_release(paramKeyEvent: KeyEvent): String {
+    override fun translateSpecialKeyRelease(paramKeyEvent: KeyEvent): String {
         val str: String
         var i = 0
 
@@ -570,7 +573,7 @@ class Cim : telnet(), MouseSyncListener {
     private fun setFramerate(rate: Int) {
         framerate = rate
         screen.set_framerate(rate)
-        set_status(3, "" + framerate)
+        setStatus(3, "" + framerate)
     }
 
     private fun showError(message: String) {
@@ -1121,20 +1124,20 @@ class Cim : telnet(), MouseSyncListener {
                             }
                             6 -> {
                                 screen.show_text("Video suspended")
-                                set_status(2, "Video_suspended")
+                                setStatus(2, "Video_suspended")
                                 screenX = 640
                                 screenY = 100
                             }
                             7 -> {
-                                ts_type = cmd_p_buff[0]
+                                tsType = cmd_p_buff[0]
                                 startRdp()
                             }
-                            8 -> stop_rdp()
+                            8 -> stopRdp()
                             9 -> {
                                 if (dvc_ib_bcnt and 0x7 != 0) {
                                     getBits(dvc_ib_bcnt and 0x7)
                                 }
-                                change_key()
+                                changeKey()
                             }
                             10 -> seize()
                             else -> println("dvc: unknown firmware command $cmd_last")
@@ -1152,7 +1155,7 @@ class Cim : telnet(), MouseSyncListener {
                         printstring += dvc_code.toChar()
                     } else {
                         when (printchan) {
-                            1, 2 -> set_status(2 + printchan, printstring)
+                            1, 2 -> setStatus(2 + printchan, printstring)
                             3 -> println(printstring)
                             4 -> screen.show_text(printstring)
                         }
@@ -1230,13 +1233,13 @@ class Cim : telnet(), MouseSyncListener {
 
                     if (!video_detected) {
                         screen.show_text("No Video")
-                        set_status(2, "No Video")
+                        setStatus(2, "No Video")
                         screenX = 640
                         screenY = 100
                     } else {
                         screen.set_abs_dimensions(screenX, screenY)
                         mouseSync.serverScreen(screenX, screenY)
-                        set_status(2, " Video:" + screenX + "x" + screenY)
+                        setStatus(2, " Video:" + screenX + "x" + screenY)
                     }
                 }
                 43 -> {
@@ -1266,7 +1269,7 @@ class Cim : telnet(), MouseSyncListener {
         return m
     }
 
-    public override fun process_dvc(paramChar: Char): Boolean {
+    public override fun processDvc(paramChar: Char): Boolean {
         if (dvc_reversal[0xff] == 0) {
             println(" Version 20050808154652 ")
             initReversal()
@@ -1304,14 +1307,14 @@ class Cim : telnet(), MouseSyncListener {
 
     fun setSigColors(paramArrayOfInt: IntArray?) {}
 
-    override fun change_key() {
+    override fun changeKey() {
         try {
             rc4encrypter!!.update_key()
         } catch (e: NoSuchAlgorithmException) {
             e.printStackTrace()
         }
 
-        super.change_key()
+        super.changeKey()
     }
 
     fun setMouseProtocol(paramInt: Int) {
@@ -1390,6 +1393,7 @@ class Cim : telnet(), MouseSyncListener {
         cursor = currentCursor
     }
 
+    @Suppress("unused")
     companion object {
         const val MOUSE_BUTTON_CENTER = 2
         const val MOUSE_BUTTON_LEFT = 4

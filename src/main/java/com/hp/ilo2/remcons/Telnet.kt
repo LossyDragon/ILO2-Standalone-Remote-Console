@@ -1,616 +1,586 @@
-package com.hp.ilo2.remcons;
+package com.hp.ilo2.remcons
 
-import java.awt.*;
-import java.awt.event.FocusEvent;
-import java.awt.event.FocusListener;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InterruptedIOException;
-import java.net.Socket;
-import java.net.SocketException;
-import java.net.UnknownHostException;
-import java.security.NoSuchAlgorithmException;
+import java.awt.*
+import java.awt.event.*
+import java.io.DataInputStream
+import java.io.DataOutputStream
+import java.io.IOException
+import java.io.InterruptedIOException
+import java.net.Socket
+import java.net.SocketException
+import java.net.UnknownHostException
+import java.security.NoSuchAlgorithmException
+import java.util.*
 
 
-public class telnet extends Panel implements Runnable, MouseListener, FocusListener, KeyListener {
-    private static final int TELNET_PORT = 23;
+open class Telnet : Panel(), Runnable, MouseListener, FocusListener, KeyListener {
 
-    public static final byte TELNET_ENCRYPT = (byte) 0xc0;
-    public static final byte TELNET_CHG_ENCRYPT_KEYS = (byte) 0xc1;
-    public static final byte TELNET_SE = (byte) 0xf0;
-    public static final byte TELNET_NOP = (byte) 0xf1;
-    public static final byte TELNET_DM = (byte) 0xf2;
-    public static final byte TELNET_BRK = (byte) 0xf3;
-    public static final byte TELNET_IP = (byte) 0xf4;
-    public static final byte TELNET_AO = (byte) 0xf5;
-    public static final byte TELNET_AYT = (byte) 0xf6;
-    public static final byte TELNET_EC = (byte) 0xf7;
-    public static final byte TELNET_EL = (byte) 0xf8;
-    public static final byte TELNET_GA = (byte) 0xf9;
-    public static final byte TELNET_SB = (byte) 0xfa;
-    public static final byte TELNET_WILL = (byte) 0xfb;
-    public static final byte TELNET_WONT = (byte) 0xfc;
-    public static final byte TELNET_DO = (byte) 0xfd;
-    public static final byte TELNET_DONT = (byte) 0xfe;
-    public static final byte TELNET_IAC = (byte) 0xff;
+    @Suppress("unused")
+    companion object {
+        const val TELNET_AO = 0xf5.toByte()
+        const val TELNET_AYT = 0xf6.toByte()
+        const val TELNET_BRK = 0xf3.toByte()
+        const val TELNET_CHG_ENCRYPT_KEYS = 0xc1.toByte()
+        const val TELNET_DM = 0xf2.toByte()
+        const val TELNET_DO = 0xfd.toByte()
+        const val TELNET_DONT = 0xfe.toByte()
+        const val TELNET_EC = 0xf7.toByte()
+        const val TELNET_EL = 0xf8.toByte()
+        const val TELNET_ENCRYPT = 0xc0.toByte()
+        const val TELNET_GA = 0xf9.toByte()
+        const val TELNET_IAC = 0xff.toByte()
+        const val TELNET_IP = 0xf4.toByte()
+        const val TELNET_NOP = 0xf1.toByte()
+        const val TELNET_SB = 0xfa.toByte()
+        const val TELNET_SE = 0xf0.toByte()
+        const val TELNET_WILL = 0xfb.toByte()
+        const val TELNET_WONT = 0xfc.toByte()
+        private const val CMD_TS_AVAIL = 0xc2.toByte()
+        private const val CMD_TS_NOT_AVAIL = 0xc3.toByte()
+        private const val CMD_TS_STARTED = 0xc4.toByte()
+        private const val CMD_TS_STOPPED = 0xc5.toByte()
+        private const val TELNET_PORT = 23
+    }
 
-    private static final byte CMD_TS_AVAIL = (byte) 0xc2;
-    private static final byte CMD_TS_NOT_AVAIL = (byte) 0xc3;
-    private static final byte CMD_TS_STARTED = (byte) 0xc4;
-    private static final byte CMD_TS_STOPPED = (byte) 0xc5;
+    private val decryptKey = ByteArray(16)
+    private val statusBox: TextField = TextField(60)
+    private val statusFields = arrayOfNulls<String>(5)
+    private val translator = LocaleTranslator()
+    private var connected = 0
+    private var dataInputStream: DataInputStream? = null
+    private var decryptionActive = false
+    private var dvcEncryption = false
+    private var dvcMode = false
+    private var enableTerminalServices = false
+    private var host = ""
+    private var login = ""
+    private var port = TELNET_PORT
+    private var rc4decrypter: RC4? = null
+    private var rdpProc: Process? = null
+    private var receiver: Thread? = null
+    private var socket: Socket? = null
+    private var seized = false
+    private var terminalServicesPort = 3389
+    protected var encryptionEnabled = false
+    var out: DataOutputStream? = null
+    var screen: dvcwin = dvcwin(1600, 1200)
+    var tsType = 0
 
-    dvcwin screen;
+    init {
+        initLayout() // Satisfies: Leaking 'this' in constructor of non-final class Telnet
 
-    private TextField statusBox;
-    private String[] statusFields = new String[5];
-
-    private Thread receiver;
-    private Socket s;
-    private DataInputStream in;
-    protected DataOutputStream out;
-    private String login = "";
-
-    private String host = "";
-    private int port = TELNET_PORT;
-
-    private int connected = 0;
-
-    private RC4 RC4decrypter;
-    private byte[] decrypt_key = new byte[16];
-    private boolean decryption_active = false;
-    protected boolean encryption_enabled = false;
-    private Process rdpProc = null;
-    private boolean enable_terminal_services = false;
-    private int terminalServicesPort = 3389;
-
-    int ts_type;
-    private boolean dvc_mode = false;
-    private boolean dvc_encryption = false;
-
-    private boolean seized = false;
-
-    private LocaleTranslator translator = new LocaleTranslator();
-
-    public telnet() {
-        this.statusBox = new TextField(60);
-
-        this.screen = new dvcwin(1600, 1200);
-        this.statusBox.setEditable(false);
-
-        this.screen.addMouseListener(this);
-
-        addFocusListener(this);
-        this.screen.addFocusListener(this);
-        this.screen.addKeyListener(this);
-
-
-        focusTraversalKeysDisable(this.screen);
-        focusTraversalKeysDisable(this);
-
-
-        setLayout(new BorderLayout());
-        add("South", this.statusBox);
-        add("North", this.screen);
-
-        set_status(1, "Offline");
-        set_status(2, "");
-        set_status(3, "");
-        set_status(4, "");
-
-
-        if ((System.getProperty("os.name").toLowerCase().startsWith("windows")) &&
-                (!this.translator.windows)) {
-            this.translator.selectLocale("en_US");
+        val isWindows = System.getProperty("os.name").lowercase(Locale.getDefault()).startsWith("windows")
+        if (isWindows && !translator.windows) {
+            translator.selectLocale("en_US")
         }
     }
 
-    public void setLocale(String paramString) {
-        this.translator.selectLocale(paramString);
+    private fun initLayout() {
+        screen = dvcwin(1600, 1200)
+        statusBox.isEditable = false
+
+        screen.addMouseListener(this)
+
+        addFocusListener(this)
+        screen.addFocusListener(this)
+        screen.addKeyListener(this)
+
+        focusTraversalKeysDisable(screen)
+        focusTraversalKeysDisable(this)
+
+        layout = BorderLayout()
+        add("South", statusBox)
+        add("North", screen)
+
+        setStatus(1, "Offline")
+        setStatus(2, "")
+        setStatus(3, "")
+        setStatus(4, "")
     }
 
-    public void enable_debug() {}
+    fun setLocale(paramString: String) {
+        translator.selectLocale(paramString)
+    }
 
+    open fun enableDebug() {}
 
-    public void disable_debug() {}
+    open fun disableDebug() {}
 
+    fun startRdp() {
+        if (rdpProc == null) {
+            val localRuntime = Runtime.getRuntime()
 
-    public void startRdp() {
-        if (this.rdpProc == null) {
-            Runtime localRuntime = Runtime.getRuntime();
-
-            String str1;
-            if (this.ts_type == 0) {
-                str1 = "mstsc";
-            } else if (this.ts_type == 1) {
-                str1 = "vnc";
-            } else {
-                str1 = "type" + this.ts_type;
+            val str1: String = when (tsType) {
+                0 -> "mstsc"
+                1 -> "vnc"
+                else -> "type$tsType"
             }
 
-            String str2 = Remcons.prop.getProperty(str1 + ".program");
-            System.out.println(str1 + " = " + str2);
+            var str2 = Remcons.prop!!.getProperty("$str1.program")
+            println("$str1 = $str2")
+
             if (str2 != null) {
-                str2 = percent_sub(str2);
-                System.out.println("exec: " + str2);
+                str2 = percentSub(str2)
+                println("exec: $str2")
+
                 try {
-                    this.rdpProc = localRuntime.exec(str2);
-                    transmit(new byte[] {TELNET_IAC, CMD_TS_STARTED});
-                } catch (SecurityException e) {
-                    System.out.println("SecurityException: " + e.getMessage() + ":: Attempting to launch " + str2);
-                } catch (IOException e) {
-                    System.out.println("IOException: " + e.getMessage() + ":: " + str2);
+                    rdpProc = localRuntime.exec(str2)
+                    transmit(byteArrayOf(TELNET_IAC, CMD_TS_STARTED))
+                } catch (e: SecurityException) {
+                    println("SecurityException: " + e.message + ":: Attempting to launch " + str2)
+                } catch (e: IOException) {
+                    println("IOException: " + e.message + ":: " + str2)
                 }
-                return;
+
+                return
             }
 
-            boolean i = false;
+            var i = false
+
             try {
-                System.out.println("Executing mstsc. Port is " + this.terminalServicesPort);
-
-                this.rdpProc = localRuntime.exec("mstsc /f /console /v:" + this.host + ":" + this.terminalServicesPort);
-
-
-                transmit(new byte[] {TELNET_IAC, CMD_TS_STARTED});
-            } catch (SecurityException e) {
-                System.out.println("SecurityException: " + e.getMessage() + ":: Attempting to launch mstsc.");
-            } catch (IOException e) {
-                System.out.println("IOException: " + e.getMessage() + ":: mstsc not found in system directory. Looking in \\Program Files\\Remote Desktop.");
-                i = true;
+                println("Executing mstsc. Port is $terminalServicesPort")
+                rdpProc = localRuntime.exec("mstsc /f /console /v:$host:$terminalServicesPort")
+                transmit(byteArrayOf(TELNET_IAC, CMD_TS_STARTED))
+            } catch (e: SecurityException) {
+                println("SecurityException: " + e.message + ":: Attempting to launch mstsc.")
+            } catch (e: IOException) {
+                println("IOException: " + e.message + ":: mstsc not found in system directory. Looking in \\Program Files\\Remote Desktop.")
+                i = true
             }
-            String[] arrayOfString;
+
+            var arrayOfString: Array<String>
             if (i) {
-                i = false;
-                arrayOfString = new String[]{"\\Program Files\\Remote Desktop\\mstsc /f /console /v:" + this.host + ":" + this.terminalServicesPort};
+                i = false
+                arrayOfString =
+                    arrayOf("\\Program Files\\Remote Desktop\\mstsc /f /console /v:$host:$terminalServicesPort")
                 try {
-                    this.rdpProc = localRuntime.exec(arrayOfString);
-
-
-                    transmit(new byte[] {TELNET_IAC, CMD_TS_STARTED});
-                } catch (SecurityException e) {
-                    System.out.println("SecurityException: " + e.getMessage() + ":: Attempting to launch mstsc.");
-                } catch (IOException e) {
-                    System.out.println("IOException: " + e.getMessage() + ":: Unable to find mstsc. Verify that Terminal Services client is installed.");
-                    i = true;
+                    rdpProc = localRuntime.exec(arrayOfString)
+                    transmit(byteArrayOf(TELNET_IAC, CMD_TS_STARTED))
+                } catch (e: SecurityException) {
+                    println("SecurityException: " + e.message + ":: Attempting to launch mstsc.")
+                } catch (e: IOException) {
+                    println("IOException: " + e.message + ":: Unable to find mstsc. Verify that Terminal Services client is installed.")
+                    i = true
                 }
             }
+
             if (i) {
-                arrayOfString = new String[]{"\\Program Files\\Terminal Services Client\\mstsc"};
+                arrayOfString = arrayOf("\\Program Files\\Terminal Services Client\\mstsc")
+
                 try {
-                    this.rdpProc = localRuntime.exec(arrayOfString);
-
-
-                    transmit(new byte[] {TELNET_IAC, CMD_TS_STARTED});
-                } catch (SecurityException e) {
-                    System.out.println("SecurityException: " + e.getMessage() + ":: Attempting to launch mstsc.");
-                } catch (IOException e) {
-                    System.out.println("IOException: " + e.getMessage() + ":: Unable to find mstsc. Verify that Terminal Services client is installed.");
+                    rdpProc = localRuntime.exec(arrayOfString)
+                    transmit(byteArrayOf(TELNET_IAC, CMD_TS_STARTED))
+                } catch (e: SecurityException) {
+                    println("SecurityException: " + e.message + ":: Attempting to launch mstsc.")
+                } catch (e: IOException) {
+                    println("IOException: " + e.message + ":: Unable to find mstsc. Verify that Terminal Services client is installed.")
                 }
             }
         }
     }
 
-
-    public void keyTyped(KeyEvent event) {
-        transmit(translate_key(event));
+    override fun keyTyped(event: KeyEvent) {
+        transmit(translateKey(event))
     }
 
-
-    public void keyPressed(KeyEvent event) {
-        transmit(translate_special_key(event));
+    override fun keyPressed(event: KeyEvent) {
+        transmit(translateSpecialKey(event))
     }
 
-
-    public void keyReleased(KeyEvent event) {
-        transmit(translate_special_key_release(event));
+    override fun keyReleased(event: KeyEvent) {
+        transmit(translateSpecialKeyRelease(event))
     }
 
-
-    public void send_auto_alive_msg() {
-        transmit("\033[&");
+    fun sendAutoAliveMsg() {
+        transmit("\u001b[&")
     }
 
-
-    public synchronized void focusGained(FocusEvent paramFocusEvent) {
-        if (paramFocusEvent.getComponent() != this.screen) {
-            this.screen.requestFocus();
+    @Synchronized
+    override fun focusGained(paramFocusEvent: FocusEvent) {
+        if (paramFocusEvent.component !== screen) {
+            screen.requestFocus()
         }
     }
 
-
-    public synchronized void focusLost(FocusEvent paramFocusEvent) {
-        if (paramFocusEvent.getComponent() == this.screen) {
+    @Synchronized
+    override fun focusLost(paramFocusEvent: FocusEvent) {
+        @Suppress("ControlFlowWithEmptyBody")
+        if (paramFocusEvent.component === screen) {
+            /* no-op */
         }
     }
 
-
-    public synchronized void mouseClicked(MouseEvent paramMouseEvent) {
-        super.requestFocus();
+    @Synchronized
+    override fun mouseClicked(paramMouseEvent: MouseEvent) {
+        super.requestFocus()
     }
 
-
-    public synchronized void mousePressed(MouseEvent paramMouseEvent) {
+    @Synchronized
+    override fun mousePressed(paramMouseEvent: MouseEvent) {
     }
 
-
-    public synchronized void mouseReleased(MouseEvent paramMouseEvent) {
+    @Synchronized
+    override fun mouseReleased(paramMouseEvent: MouseEvent) {
     }
 
-
-    public synchronized void mouseEntered(MouseEvent paramMouseEvent) {
+    @Synchronized
+    override fun mouseEntered(paramMouseEvent: MouseEvent) {
     }
 
-
-    public synchronized void mouseExited(MouseEvent paramMouseEvent) {
+    @Synchronized
+    override fun mouseExited(paramMouseEvent: MouseEvent) {
     }
 
-
-    public synchronized void addNotify() {
-        super.addNotify();
+    @Synchronized
+    override fun addNotify() {
+        super.addNotify()
     }
 
-
-    public synchronized void set_status(int fieldIndex, String message) {
-        this.statusFields[fieldIndex] = message;
-
-        this.statusBox.setText(this.statusFields[0] + " " + this.statusFields[1] + " " + this.statusFields[2] + " " + this.statusFields[3]);
+    @Synchronized
+    fun setStatus(fieldIndex: Int, message: String?) {
+        statusFields[fieldIndex] = message
+        statusBox.text = statusFields[0] + " " + statusFields[1] + " " + statusFields[2] + " " + statusFields[3]
     }
 
+    open fun reinitVars() {}
 
-    public void reinit_vars() {
+    fun setupDecryption(paramArrayOfByte: ByteArray?) {
+        if (paramArrayOfByte == null)
+            throw NullPointerException("setupDecryption(paramArrayOfByte: ByteArray?) is null")
+
+        System.arraycopy(paramArrayOfByte, 0, decryptKey, 0, 16)
+
+        rc4decrypter = RC4(paramArrayOfByte)
+        encryptionEnabled = true
     }
 
-
-    public void setup_decryption(byte[] paramArrayOfByte) {
-        System.arraycopy(paramArrayOfByte, 0, this.decrypt_key, 0, 16);
-
-        this.RC4decrypter = new RC4(paramArrayOfByte);
-        this.encryption_enabled = true;
-    }
-
-
-    public synchronized void connect(String paramString1, String paramString2, int paramInt1, int paramInt2, int paramInt3) {
-        this.enable_terminal_services = ((paramInt2 & 0x1) == 1);
-        this.ts_type = (paramInt2 >> 8);
+    @Synchronized
+    open fun connect(paramString1: String, paramString2: String?, paramInt1: Int, paramInt2: Int, paramInt3: Int) {
+        enableTerminalServices = paramInt2 and 0x1 == 1
+        tsType = paramInt2 shr 8
 
         if (paramInt3 != 0) {
-            this.terminalServicesPort = paramInt3;
+            terminalServicesPort = paramInt3
         }
 
-        if (this.connected == 0) {
-            this.screen.start_updates();
+        if (connected == 0) {
+            screen.start_updates()
+            connected = 1
+            host = paramString1
+            login = paramString2.orEmpty() // Eh?
+            port = paramInt1
 
-            this.connected = 1;
-            this.host = paramString1;
-            this.login = paramString2;
-            this.port = paramInt1;
+            requestFocus()
 
-            requestFocus();
             try {
-                set_status(1, "Connecting");
-                this.s = new Socket(this.host, this.port);
+                setStatus(1, "Connecting")
+
+                socket = Socket(host, port)
+
                 try {
-                    this.s.setSoLinger(true, 0);
-                } catch (SocketException e) {
-                    System.out.println("telnet.connect() linger SocketException: " + e);
+                    socket!!.setSoLinger(true, 0)
+                } catch (e: SocketException) {
+                    println("telnet.connect() linger SocketException: $e")
                 }
 
-                this.in = new DataInputStream(this.s.getInputStream());
-                this.out = new DataOutputStream(this.s.getOutputStream());
-                set_status(1, "Online");
+                dataInputStream = DataInputStream(socket!!.getInputStream())
+                out = DataOutputStream(socket!!.getOutputStream())
 
+                setStatus(1, "Online")
 
-                this.receiver = new Thread(this);
+                receiver = Thread(this)
+                receiver!!.name = "telnet_rcvr"
+                receiver!!.start()
 
-                this.receiver.setName("telnet_rcvr");
-                this.receiver.start();
-
-                transmit(this.login);
-            } catch (SocketException e) {
-                System.out.println("telnet.connect() SocketException: " + e);
-                setErrorStatus(e.toString());
-            } catch (UnknownHostException e) {
-                System.out.println("telnet.connect() UnknownHostException: " + e);
-                setErrorStatus(e.toString());
-            } catch (IOException e) {
-                System.out.println("telnet.connect() IOException: " + e);
-                setErrorStatus(e.toString());
+                transmit(login)
+            } catch (e: SocketException) {
+                println("telnet.connect() SocketException: $e")
+                setErrorStatus(e.toString())
+            } catch (e: UnknownHostException) {
+                println("telnet.connect() UnknownHostException: $e")
+                setErrorStatus(e.toString())
+            } catch (e: IOException) {
+                println("telnet.connect() IOException: $e")
+                setErrorStatus(e.toString())
             }
         } else {
-            requestFocus();
+            requestFocus()
         }
     }
 
-    private void setErrorStatus(String s) {
-        set_status(1, s);
-        this.s = null;
-        this.in = null;
-        this.out = null;
-        this.receiver = null;
-        this.connected = 0;
+    private fun setErrorStatus(status: String) {
+        setStatus(1, status)
+
+        socket = null
+        dataInputStream = null
+        out = null
+        receiver = null
+        connected = 0
     }
 
-
-    public void connect(String paramString1, String paramString2, int paramInt1, int paramInt2) {
-        connect(paramString1, paramString2, this.port, paramInt1, paramInt2);
+    fun connect(paramString1: String, paramString2: String, paramInt1: Int, paramInt2: Int) {
+        connect(paramString1, paramString2, port, paramInt1, paramInt2)
     }
 
-
-    public void connect(String paramString, int paramInt1, int paramInt2) {
-        connect(paramString, this.login, this.port, paramInt1, paramInt2);
+    fun connect(paramString: String, paramInt1: Int, paramInt2: Int) {
+        connect(paramString, login, port, paramInt1, paramInt2)
     }
 
+    @Synchronized
+    fun disconnect() {
+        if (connected == 1) {
+            screen.stop_updates()
+            connected = 0
 
-    public synchronized void disconnect() {
-        if (this.connected == 1) {
-            this.screen.stop_updates();
-            this.connected = 0;
-
-            if ((this.receiver != null) && (this.receiver.isAlive())) {
-                this.receiver.interrupt();
+            if (receiver != null && receiver!!.isAlive) {
+                receiver!!.interrupt()
             }
-            this.receiver = null;
 
-            if (this.s != null) {
+            receiver = null
+
+            if (socket != null) {
                 try {
-                    System.out.println("Closing socket");
-                    this.s.close();
-                } catch (IOException localIOException) {
-                    System.out.println("telnet.disconnect() IOException: " + localIOException);
-                    set_status(1, localIOException.toString());
+                    println("Closing socket")
+                    socket!!.close()
+                } catch (localIOException: IOException) {
+                    println("telnet.disconnect() IOException: $localIOException")
+                    setStatus(1, localIOException.toString())
                 }
             }
-            this.s = null;
-            this.in = null;
-            this.out = null;
-            set_status(1, "Offline");
-            reinit_vars();
 
-            this.decryption_active = false;
+            socket = null
+            dataInputStream = null
+            out = null
+
+            setStatus(1, "Offline")
+            reinitVars()
+
+            decryptionActive = false
         }
     }
-
 
     // TAKE EXTRA CARE TO CONVERT INTEGERS TO BYTES PROPERLY WHEN USING THIS
-    public synchronized void transmit(String paramString) {
-        if (this.out == null) {
-            return;
+    @Synchronized
+    open fun transmit(paramString: String) {
+        if (out == null) {
+            return
         }
-        if (paramString.length() != 0) {
-            byte[] arrayOfByte = new byte[paramString.length()];
 
-            for (int i = 0; i < paramString.length(); i++) {
-                arrayOfByte[i] = ((byte) paramString.charAt(i));
+        if (paramString.isNotEmpty()) {
+            val arrayOfByte = ByteArray(paramString.length)
+
+            for (i in paramString.indices) {
+                arrayOfByte[i] = paramString[i].code.toByte()
             }
-            transmit(arrayOfByte);
+
+            transmit(arrayOfByte)
         }
     }
 
-    public synchronized void transmit(byte[] data) {
-        if (this.out == null) {
-            return;
+    @Synchronized
+    open fun transmit(data: ByteArray) {
+        if (out == null) {
+            return
         }
-        if (data.length != 0) {
+
+        if (data.isNotEmpty()) {
             try {
-                this.out.write(data, 0, data.length);
-            } catch (IOException localIOException) {
-                System.out.println("telnet.transmit() IOException: " + localIOException);
+                out!!.write(data, 0, data.size)
+            } catch (localIOException: IOException) {
+                println("telnet.transmit() IOException: $localIOException")
             }
         }
     }
 
+    @Synchronized
+    protected open fun translateKey(keyEvent: KeyEvent): String {
+        val str: String = when (val c = keyEvent.keyChar) {
+            '\n', '\r' -> if (keyEvent.isShiftDown) "\n" else "\r"
+            '\t' -> ""
+            11.toChar(), '\u000c' -> translator.translate(c)
+            else -> translator.translate(c)
+        }
+        return str
+    }
 
-    protected synchronized String translate_key(KeyEvent keyEvent) {
-        char c = keyEvent.getKeyChar();
-        String str;
-        switch (c) {
-            case '\n':
-            case '\r':
-                if (keyEvent.isShiftDown()) {
-                    str = "\n";
-                } else {
-                    str = "\r";
-                }
-                break;
-
-            case '\t':
-                str = "";
-                break;
-            case 11:
-            case '\f':
-            default:
-                str = this.translator.translate(c);
+    @Synchronized
+    protected open fun translateSpecialKey(paramKeyEvent: KeyEvent): String {
+        var str = ""
+        if (paramKeyEvent.keyCode == '\t'.code) {
+            paramKeyEvent.consume()
+            str = "\t"
         }
 
-        return str;
+        return str
     }
 
-
-    protected synchronized String translate_special_key(KeyEvent paramKeyEvent) {
-        String str = "";
-
-        if (paramKeyEvent.getKeyCode() == '\t') {
-            paramKeyEvent.consume();
-            str = "\t";
-        }
-        return str;
+    @Synchronized
+    protected open fun translateSpecialKeyRelease(paramKeyEvent: KeyEvent): String {
+        return ""
     }
 
-
-    protected synchronized String translate_special_key_release(KeyEvent paramKeyEvent) {
-        return "";
+    open fun processDvc(paramChar: Char): Boolean {
+        return true
     }
 
+    override fun run() {
+        val i = 0
+        var j = 0
+        val k = 0
+        val m = 0
+        val arrayOfByte = ByteArray(1024)
 
-    boolean process_dvc(char paramChar) {
-        return true;
-    }
+        screen.show_text("Connecting")
 
-    public void run() {
-        int i = 0;
-        int j = 0;
-        int k = 0;
-        int m = 0;
-        byte[] arrayOfByte = new byte[1024];
-
-
-        this.screen.show_text("Connecting");
         try {
             while (true) {
-                if (this.rdpProc != null) {
+                if (rdpProc != null) {
                     try {
-                        this.rdpProc.exitValue();
-                        this.rdpProc.destroy();
-                        this.rdpProc = null;
-
-
-                        transmit(new byte[] {TELNET_IAC, CMD_TS_STOPPED});
-                    } catch (IllegalThreadStateException ignored) {}
+                        rdpProc!!.exitValue()
+                        rdpProc!!.destroy()
+                        rdpProc = null
+                        transmit(byteArrayOf(TELNET_IAC, CMD_TS_STOPPED))
+                    } catch (ignored: IllegalThreadStateException) {
+                        /* no-op */
+                    }
                 }
 
-
-                int n;
-
+                var n: Int
                 try {
-                    if ((this.s == null) || (this.in == null)) {
-                        System.out.println("telnet.run() s or in is null");
-                        break;
+                    if (socket == null || dataInputStream == null) {
+                        println("telnet.run() s or in is null")
+                        break
                     }
-                    this.s.setSoTimeout(1000);
-                    n = this.in.read(arrayOfByte);
 
-                } catch (InterruptedIOException e) {
-                    continue;
-                } catch (Exception e) {
-                    System.out.println("telnet.run().read Exception, class:" + e.getClass() + "  msg:" + e.getMessage());
-                    e.printStackTrace();
-                    n = -1;
+                    socket!!.soTimeout = 1000
+                    n = dataInputStream!!.read(arrayOfByte)
+                } catch (e: InterruptedIOException) {
+                    continue
+                } catch (e: Exception) {
+                    println("telnet.run().read Exception, class:" + e.javaClass + "  msg:" + e.message)
+                    e.printStackTrace()
+
+                    n = -1
                 }
 
                 if (n < 0) {
-                    break;
+                    break
                 }
 
+                for (i1 in 0 until n) {
+                    var c1 = Char(arrayOfByte[i1].toUShort())
+                    c1 = (c1.code and 0xFF).toChar()
 
-                for (int i1 = 0; i1 < n; i1++) {
-                    char c1 = (char) arrayOfByte[i1];
-                    c1 = (char) (c1 & 0xFF);
-
-                    if (this.dvc_mode) {
-                        if (this.dvc_encryption) {
-                            char c2 = (char) (this.RC4decrypter.randomValue() & 0xFF);
-                            c1 = (char) (c1 ^ c2);
-                            c1 = (char) (c1 & 0xFF);
+                    if (dvcMode) {
+                        if (dvcEncryption) {
+                            val c2 = (rc4decrypter!!.randomValue() and 0xFF).toChar()
+                            c1 = (c1.code xor c2.code).toChar()
+                            c1 = (c1.code and 0xFF).toChar()
                         }
 
-                        this.dvc_mode = process_dvc(c1);
-                        if (!this.dvc_mode) {
-                            System.out.println("DVC mode turned off");
-                            set_status(1, "DVC Mode off at run");
+                        dvcMode = processDvc(c1)
+
+                        if (!dvcMode) {
+                            println("DVC mode turned off")
+                            setStatus(1, "DVC Mode off at run")
                         }
+                    } else if (c1.code == 27) {
+                        // this sequence has to happen before anything else - it gates the above if block
+                        j = 1
+                    } else if (j == 1 && c1 == '[') {
+                        j = 2
+                    } else if (j == 2 && c1 == 'R') {
+                        dvcMode = true
+                        dvcEncryption = true
 
+                        setStatus(1, "DVC Mode (RC4-128 bit)")
+                    } else if (j == 2 && c1 == 'r') {
+                        dvcMode = true
+                        dvcEncryption = false
 
-                    } else if (c1 == 27) { // this sequence has to happen before anything else - it gates the above if block
-                        j = 1;
-                    } else if ((j == 1) && (c1 == '[')) {
-                        j = 2;
-                    } else if ((j == 2) && (c1 == 'R')) {
-
-                        this.dvc_mode = true;
-                        this.dvc_encryption = true;
-                        set_status(1, "DVC Mode (RC4-128 bit)");
-                    } else if ((j == 2) && (c1 == 'r')) {
-
-                        this.dvc_mode = true;
-                        this.dvc_encryption = false;
-                        set_status(1, "DVC Mode (no encryption)");
+                        setStatus(1, "DVC Mode (no encryption)")
                     } else {
-                        j = 0;
+                        j = 0
                     }
-
                 }
             }
-        } catch (Exception e) {
-            System.out.println("telnet.run() Exception, class:" + e.getClass() + "  msg:" + e.getMessage());
-            e.printStackTrace();
+        } catch (e: Exception) {
+            println("telnet.run() Exception, class:" + e.javaClass + "  msg:" + e.message)
+            e.printStackTrace()
         } finally {
-            if (!this.seized) {
-                this.screen.show_text("Offline");
-                set_status(1, "Offline");
-                set_status(2, "");
-                set_status(3, "");
-                set_status(4, "");
-                disconnect();
+            if (!seized) {
+                screen.show_text("Offline")
+                setStatus(1, "Offline")
+                setStatus(2, "")
+                setStatus(3, "")
+                setStatus(4, "")
+                disconnect()
             }
         }
     }
 
-
-    public void change_key() {
+    open fun changeKey() {
         try {
-            this.RC4decrypter.update_key();
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
+            rc4decrypter!!.update_key()
+        } catch (e: NoSuchAlgorithmException) {
+            e.printStackTrace()
         }
     }
 
-    private void focusTraversalKeysDisable(Component paramObject) {
-        paramObject.setFocusTraversalKeysEnabled(false);
+    private fun focusTraversalKeysDisable(paramObject: Component) {
+        paramObject.focusTraversalKeysEnabled = false
 
-        if (paramObject instanceof Container)
-            ((Container)paramObject).setFocusCycleRoot(true);
+        if (paramObject is Container)
+            paramObject.isFocusCycleRoot = true
     }
 
-
-    public void stop_rdp() {
-        if (this.rdpProc != null) {
+    fun stopRdp() {
+        if (rdpProc != null) {
             try {
-                this.rdpProc.exitValue();
-            } catch (IllegalThreadStateException e) {
-                System.out.println("IllegalThreadStateException thrown. Destroying TS.");
-                this.rdpProc.destroy();
+                rdpProc!!.exitValue()
+            } catch (e: IllegalThreadStateException) {
+                println("IllegalThreadStateException thrown. Destroying TS.")
+
+                rdpProc!!.destroy()
             }
-            this.rdpProc = null;
 
-            transmit(new byte[] {TELNET_IAC, CMD_TS_STOPPED});
+            rdpProc = null
+            transmit(byteArrayOf(TELNET_IAC, CMD_TS_STOPPED))
         }
-        System.out.println("TS stop.");
+
+        println("TS stop.")
     }
 
-
-    public void seize() {
-        this.seized = true;
-        this.screen.show_text("Session Acquired by another user.");
-        set_status(1, "Offline");
-        set_status(2, "");
-        set_status(3, "");
-        set_status(4, "");
-        disconnect();
+    fun seize() {
+        seized = true
+        screen.show_text("Session Acquired by another user.")
+        setStatus(1, "Offline")
+        setStatus(2, "")
+        setStatus(3, "")
+        setStatus(4, "")
+        disconnect()
     }
 
+    private fun percentSub(paramString: String): String {
+        val builder = StringBuilder()
+        var i = 0
 
-    public String percent_sub(String paramString) {
-        StringBuilder builder = new StringBuilder();
-
-        for (int i = 0; i < paramString.length(); i++) {
-            char c = paramString.charAt(i);
+        while (i < paramString.length) {
+            var c = paramString[i]
             if (c == '%') {
-                c = paramString.charAt(++i);
-                if (c == 'h') {
-                    builder.append(this.host);
-                } else if (c == 'p') {
-                    builder.append(this.terminalServicesPort);
-                } else {
-                    builder.append(c);
+                c = paramString[++i]
+                when (c) {
+                    'h' -> builder.append(host)
+                    'p' -> builder.append(terminalServicesPort)
+                    else -> builder.append(c)
                 }
             } else {
-                builder.append(c);
+                builder.append(c)
             }
+
+            i++
         }
-        return builder.toString();
+
+        return builder.toString()
     }
 }

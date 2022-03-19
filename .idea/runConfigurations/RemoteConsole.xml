@@ -1,4 +1,4 @@
-<component name="ProjectRunConfigurationManager">
+{\rtf1}<component name="ProjectRunConfigurationManager">
   <configuration default="false" name="RemoteConsole" type="Application" factoryName="Application">
     <option name="MAIN_CLASS_NAME" value="Main" />
     <module name="ILO2RemCon.main" />

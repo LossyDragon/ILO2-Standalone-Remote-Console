@@ -168,7 +168,7 @@ class Remcons(
 
         if (sessionEncryptionEnabled) {
             session.setupEncryption(sessionEncryptKey, sessionKeyIndex)
-            session.setup_decryption(sessionDecryptKey)
+            session.setupDecryption(sessionDecryptKey)
         }
 
         session.setMouseProtocol(mouseMode)
@@ -179,9 +179,9 @@ class Remcons(
 
         session.setSigColors(rndmNums)
         if (debugMsg) {
-            session.enable_debug()
+            session.enableDebug()
         } else {
-            session.disable_debug()
+            session.disableDebug()
         }
 
         toolBar = Panel(FlowLayout(1, 1, 7)).apply {
@@ -255,7 +255,7 @@ class Remcons(
             timeoutCountdown = sessionTimeout
             session.sendKeepAliveMsg()
         } else {
-            session.send_auto_alive_msg()
+            session.sendAutoAliveMsg()
             timeoutCountdown -= KEEP_ALIVE_INTERVAL
 
             if (timeoutCountdown <= 0) {
@@ -327,7 +327,7 @@ class Remcons(
         if (sessionIp == null) {
             session.connect(huust, login, portNum, tsParam, terminalServicesPort)
         } else {
-            session.connect(sessionIp, login, portNum, tsParam, terminalServicesPort)
+            session.connect(sessionIp!!, login, portNum, tsParam, terminalServicesPort)
         }
 
         timer = Timer(30000, false, session)
