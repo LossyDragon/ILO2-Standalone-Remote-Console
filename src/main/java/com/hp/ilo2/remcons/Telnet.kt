@@ -12,7 +12,6 @@ import java.net.UnknownHostException
 import java.security.NoSuchAlgorithmException
 import java.util.*
 
-
 open class Telnet : Panel(), Runnable, MouseListener, FocusListener, KeyListener {
 
     @Suppress("unused")
@@ -63,7 +62,7 @@ open class Telnet : Panel(), Runnable, MouseListener, FocusListener, KeyListener
     private var terminalServicesPort = 3389
     protected var encryptionEnabled = false
     var out: DataOutputStream? = null
-    var screen: dvcwin = dvcwin(1600, 1200)
+    var screen: Dvcwin = Dvcwin(1600, 1200)
     var tsType = 0
 
     init {
@@ -76,7 +75,7 @@ open class Telnet : Panel(), Runnable, MouseListener, FocusListener, KeyListener
     }
 
     private fun initLayout() {
-        screen = dvcwin(1600, 1200)
+        screen = Dvcwin(1600, 1200)
         statusBox.isEditable = false
 
         screen.addMouseListener(this)
@@ -264,7 +263,7 @@ open class Telnet : Panel(), Runnable, MouseListener, FocusListener, KeyListener
         }
 
         if (connected == 0) {
-            screen.start_updates()
+            screen.startUpdates()
             connected = 1
             host = paramString1
             login = paramString2.orEmpty() // Eh?
@@ -329,7 +328,7 @@ open class Telnet : Panel(), Runnable, MouseListener, FocusListener, KeyListener
     @Synchronized
     fun disconnect() {
         if (connected == 1) {
-            screen.stop_updates()
+            screen.stopUpdates()
             connected = 0
 
             if (receiver != null && receiver!!.isAlive) {
@@ -430,7 +429,7 @@ open class Telnet : Panel(), Runnable, MouseListener, FocusListener, KeyListener
         val m = 0
         val arrayOfByte = ByteArray(1024)
 
-        screen.show_text("Connecting")
+        screen.showText("Connecting")
 
         try {
             while (true) {
@@ -509,7 +508,7 @@ open class Telnet : Panel(), Runnable, MouseListener, FocusListener, KeyListener
             e.printStackTrace()
         } finally {
             if (!seized) {
-                screen.show_text("Offline")
+                screen.showText("Offline")
                 setStatus(1, "Offline")
                 setStatus(2, "")
                 setStatus(3, "")
@@ -521,7 +520,7 @@ open class Telnet : Panel(), Runnable, MouseListener, FocusListener, KeyListener
 
     open fun changeKey() {
         try {
-            rc4decrypter!!.update_key()
+            rc4decrypter!!.updateKey()
         } catch (e: NoSuchAlgorithmException) {
             e.printStackTrace()
         }
@@ -553,7 +552,7 @@ open class Telnet : Panel(), Runnable, MouseListener, FocusListener, KeyListener
 
     fun seize() {
         seized = true
-        screen.show_text("Session Acquired by another user.")
+        screen.showText("Session Acquired by another user.")
         setStatus(1, "Offline")
         setStatus(2, "")
         setStatus(3, "")

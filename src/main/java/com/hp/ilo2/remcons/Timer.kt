@@ -1,137 +1,128 @@
-package com.hp.ilo2.remcons;
+package com.hp.ilo2.remcons
 
-import java.util.Date;
+import java.util.*
 
-class Timer implements Runnable {
-  enum State {
-    INIT, RUNNING, PAUSED, STOPPED
-  }
-  private State state = State.INIT;
+internal class Timer(
+    private val timeoutMax: Int,
+    private val oneShot: Boolean,
+    private val mutex: Any
+) : Runnable {
 
-  private static final int POLL_PERIOD = 50;
-
-  private int timeout_count;
-  private int timeout_max;
-  private boolean one_shot;
-  private long start_time_millis;
-  private long stop_time_millis;
-
-  private TimerListener callback;
-
-  private Object callbackInfo;
-
-  private final Object mutex;
-
-  public Timer(int timeoutMax, boolean isOneShot, Object mutex) {
-    this.timeout_max = timeoutMax;
-    this.one_shot = isOneShot;
-    this.mutex = mutex;
-  }
-
-  public void setListener(TimerListener listener, Object callbackInfo) {
-    synchronized (this.mutex) {
-      this.callback = listener;
-      this.callbackInfo = callbackInfo;
+    companion object {
+        private const val POLL_PERIOD = 50
     }
-  }
 
-  public void start() {
-    synchronized (this.mutex) {
-      switch (this.state) {
-        case INIT:
-          this.state = State.RUNNING;
-          this.timeout_count = 0;
-          new Thread(this).start();
-          break;
-        case RUNNING:
-          this.timeout_count = 0;
-          break;
-        case PAUSED:
-          this.timeout_count = 0;
-          this.state = State.RUNNING;
-          break;
-        case STOPPED:
-          this.timeout_count = 0;
-          this.state = State.RUNNING;
-      }
+    internal enum class State {
+        INIT, RUNNING, PAUSED, STOPPED
     }
-  }
 
-  public void stop() {
-    synchronized (this.mutex) {
-      if (this.state != State.INIT) {
-        this.state = State.STOPPED;
-      }
-    }
-  }
+    private var callback: TimerListener? = null
+    private var callbackInfo: Any? = null
+    private var startTimeMillis: Long = 0
+    private var state = State.INIT
+    private var stopTimeMillis: Long = 0
+    private var timeoutCount = 0
 
-  public void pause() {
-    synchronized (this.mutex) {
-      if (this.state == State.RUNNING) {
-        this.state = State.PAUSED;
-      }
-    }
-  }
-
-  public void cont() {
-    synchronized (this.mutex) {
-      if (this.state == State.PAUSED) {
-        this.state = State.RUNNING;
-      }
-    }
-  }
-
-  public void run() {
-    do {
-      Date date = new Date();
-      this.start_time_millis = date.getTime();
-      try {
-        Thread.sleep(POLL_PERIOD);
-      } catch (InterruptedException ignored) {
-      }
-
-      date = new Date();
-      this.stop_time_millis = date.getTime();
-    } while (process_state());
-  }
-
-  private boolean process_state() {
-    boolean shouldStop = true;
-
-    synchronized (this.mutex) {
-      switch (this.state)
-      {
-      case INIT:
-        break;
-      case PAUSED:
-        if (this.stop_time_millis > this.start_time_millis) {
-          this.timeout_count = ((int)(this.timeout_count + (this.stop_time_millis - this.start_time_millis)));
+    fun setListener(listener: TimerListener?, callbackInfo: Any?) {
+        synchronized(mutex) {
+            callback = listener
+            this.callbackInfo = callbackInfo
         }
-        else
-          this.timeout_count += 50;
-        if (this.timeout_count >= this.timeout_max)
-        {
-          if (this.callback != null) {
-            this.callback.timeout(this.callbackInfo);
-          }
-          if (this.one_shot) {
-            this.state = State.INIT;
-            shouldStop = false;
-          }
-          else {
-            this.timeout_count = 0;
-          }
+    }
+
+    fun start() {
+        synchronized(mutex) {
+            when (state) {
+                State.INIT -> {
+                    state = State.RUNNING
+                    timeoutCount = 0
+                    Thread(this).start()
+                }
+                State.RUNNING -> timeoutCount = 0
+                State.PAUSED -> {
+                    timeoutCount = 0
+                    state = State.RUNNING
+                }
+                State.STOPPED -> {
+                    timeoutCount = 0
+                    state = State.RUNNING
+                }
+            }
+        }
+    }
+
+    fun stop() {
+        synchronized(mutex) {
+            if (state != State.INIT) {
+                state = State.STOPPED
+            }
+        }
+    }
+
+    fun pause() {
+        synchronized(mutex) {
+            if (state == State.RUNNING) {
+                state = State.PAUSED
+            }
+        }
+    }
+
+    fun cont() {
+        synchronized(mutex) {
+            if (state == State.PAUSED) {
+                state = State.RUNNING
+            }
+        }
+    }
+
+    override fun run() {
+        do {
+            var date = Date()
+            startTimeMillis = date.time
+
+            try {
+                Thread.sleep(POLL_PERIOD.toLong())
+            } catch (ignored: InterruptedException) {
+                /* no-op */
+            }
+
+            date = Date()
+            stopTimeMillis = date.time
+        } while (processState())
+    }
+
+    private fun processState(): Boolean {
+        var shouldStop = true
+
+        synchronized(mutex) {
+            when (state) {
+                State.INIT -> {}
+                State.PAUSED -> {
+                    if (stopTimeMillis > startTimeMillis) {
+                        timeoutCount = (timeoutCount + (stopTimeMillis - startTimeMillis)).toInt()
+                    } else timeoutCount += 50
+
+                    if (timeoutCount >= timeoutMax) {
+                        if (callback != null) {
+                            callback!!.timeout(callbackInfo)
+                        }
+
+                        if (oneShot) {
+                            state = State.INIT
+                            shouldStop = false
+                        } else {
+                            timeoutCount = 0
+                        }
+                    }
+                }
+                State.RUNNING -> {}
+                State.STOPPED -> {
+                    state = State.INIT
+                    shouldStop = false
+                }
+            }
         }
 
-        break;
-      case RUNNING:
-        break;
-      case STOPPED:
-        this.state = State.INIT;
-        shouldStop = false;
-      }
-
+        return shouldStop
     }
-    return shouldStop;
-  }
 }

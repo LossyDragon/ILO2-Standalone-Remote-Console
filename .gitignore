@@ -4,7 +4,7 @@
 # Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
 
 # Everything
-.idea
+/.idea/
 
 # User-specific stuff
 .idea/**/workspace.xml
@@ -33,3 +33,4 @@ build
 # Project specific
 data.cook
 config.properties
+

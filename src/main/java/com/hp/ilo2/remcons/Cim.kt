@@ -44,8 +44,8 @@ class Cim : Telnet(), MouseSyncListener {
         mouseSync.setListener(this)
     }
 
-    fun setupEncryption(key: ByteArray?, keyIndex: Int) {
-        System.arraycopy(key!!, 0, encryptKey, 0, 16)
+    fun setupEncryption(key: ByteArray, keyIndex: Int) {
+        System.arraycopy(key, 0, encryptKey, 0, 16)
         rc4encrypter = RC4(key)
         keyIndex1 = keyIndex
     }
@@ -572,7 +572,7 @@ class Cim : Telnet(), MouseSyncListener {
     @Synchronized
     private fun setFramerate(rate: Int) {
         framerate = rate
-        screen.set_framerate(rate)
+        screen.setFramerate(rate)
         setStatus(3, "" + framerate)
     }
 
@@ -730,7 +730,7 @@ class Cim : Telnet(), MouseSyncListener {
 
         while (paramInt != 0) {
             if (k != 0) {
-                screen.paste_array(block, i, j, 16)
+                screen.pasteArray(block, i, j, 16)
             }
 
             dvc_lastx += 1
@@ -1055,7 +1055,7 @@ class Cim : Telnet(), MouseSyncListener {
                         dvc_lasty = 0
                     }
 
-                    screen.repaint_it(true)
+                    screen.repaintIt(true)
                 }
                 20 -> {
                     dvc_code += dvc_lastx + 1
@@ -1099,7 +1099,7 @@ class Cim : Telnet(), MouseSyncListener {
                     if (dvc_ib_bcnt and 0x7 != 0) getBits(dvc_ib_bcnt and 0x7)
 
                     timeout_count = count_bytes
-                    screen.repaint_it(true)
+                    screen.repaintIt(true)
                 }
                 24 -> {
                     if (cmd_p_count != 0) cmd_p_buff[cmd_p_count - 1] = cmd_last
@@ -1123,7 +1123,7 @@ class Cim : Telnet(), MouseSyncListener {
                             5 -> {
                             }
                             6 -> {
-                                screen.show_text("Video suspended")
+                                screen.showText("Video suspended")
                                 setStatus(2, "Video_suspended")
                                 screenX = 640
                                 screenY = 100
@@ -1157,7 +1157,7 @@ class Cim : Telnet(), MouseSyncListener {
                         when (printchan) {
                             1, 2 -> setStatus(2 + printchan, printstring)
                             3 -> println(printstring)
-                            4 -> screen.show_text(printstring)
+                            4 -> screen.showText(printstring)
                         }
                         dvc_next_state = 1
                     }
@@ -1232,12 +1232,12 @@ class Cim : Telnet(), MouseSyncListener {
                     dvc_y_clipped = if (dvc_code > 0) 256 - 16 * dvc_code else 0
 
                     if (!video_detected) {
-                        screen.show_text("No Video")
+                        screen.showText("No Video")
                         setStatus(2, "No Video")
                         screenX = 640
                         screenY = 100
                     } else {
-                        screen.set_abs_dimensions(screenX, screenY)
+                        screen.setAbsDimensions(screenX, screenY)
                         mouseSync.serverScreen(screenX, screenY)
                         setStatus(2, " Video:" + screenX + "x" + screenY)
                     }
@@ -1309,7 +1309,7 @@ class Cim : Telnet(), MouseSyncListener {
 
     override fun changeKey() {
         try {
-            rc4encrypter!!.update_key()
+            rc4encrypter!!.updateKey()
         } catch (e: NoSuchAlgorithmException) {
             e.printStackTrace()
         }

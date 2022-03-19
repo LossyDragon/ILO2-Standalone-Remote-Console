@@ -1,59 +1,71 @@
-package com.hp.ilo2.remcons;
+package com.hp.ilo2.remcons
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.security.MessageDigest
+import java.security.NoSuchAlgorithmException
+import kotlin.Throws
 
+/**
+ * Rivest Cipher 4
+ */
+class RC4 internal constructor(key: ByteArray) {
 
-public class RC4 {
+    private val key = byteArrayOf(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    private val keyBox = ByteArray(0x100)
+    private val pre = ByteArray(16)
+    private val sBox = ByteArray(0x100)
+    private var i = 0
+    private var j = 0
 
-  private byte[] key = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-  private byte[] pre = new byte[16];
-  private byte[] sBox = new byte[0x100];
-  private byte[] keyBox = new byte[0x100];
-  private int i = 0;
-  private int j = 0;
+    init {
+        System.arraycopy(key, 0, pre, 0, 16)
 
-  RC4(byte[] key) {
-    System.arraycopy(key, 0, this.pre, 0, 16);
-      try {
-          update_key();
-      } catch (NoSuchAlgorithmException e) {
-          e.printStackTrace();
-      }
-  }
-
-  void update_key() throws NoSuchAlgorithmException {
-    MessageDigest md = MessageDigest.getInstance("MD5");
-    md.update(this.pre);
-    md.update(this.key);
-
-    byte[] digest = md.digest();
-    System.arraycopy(digest, 0, this.key, 0, this.key.length);
-
-    for (int k = 0; k < 256; k++) {
-      this.sBox[k] = ((byte)(k & 0xFF));
-      this.keyBox[k] = this.key[(k % 16)];
+        try {
+            updateKey()
+        } catch (e: NoSuchAlgorithmException) {
+            e.printStackTrace()
+        }
     }
 
-    this.j = 0;
-    for (this.i = 0; this.i < 256; this.i += 1) {
-      this.j = ((this.j & 0xFF) + (this.sBox[this.i] & 0xFF) + (this.keyBox[this.i] & 0xFF) & 0xFF);
-      int m = this.sBox[this.i];
-      this.sBox[this.i] = this.sBox[this.j];
-      this.sBox[this.j] = (byte)m;
+    @Throws(NoSuchAlgorithmException::class)
+    fun updateKey() {
+        val md = MessageDigest.getInstance("MD5")
+        md.update(pre)
+        md.update(key)
+
+        val digest = md.digest()
+        System.arraycopy(digest, 0, key, 0, key.size)
+
+        for (k in 0..255) {
+            sBox[k] = (k and 0xFF).toByte()
+            keyBox[k] = key[k % 16]
+        }
+
+        j = 0
+        i = 0
+
+        while (i < 256) {
+            j = (j and 0xFF) + (sBox[i].toInt() and 0xFF) + (keyBox[i].toInt() and 0xFF) and 0xFF
+            val m = sBox[i].toInt()
+            sBox[i] = sBox[j]
+            sBox[j] = m.toByte()
+            i += 1
+        }
+
+        i = 0
+        j = 0
     }
 
-    this.i = 0;
-    this.j = 0;
-  }
+    fun randomValue(): Int {
+        i = (i and 0xFF) + 1 and 0xFF
+        j = (j and 0xFF) + (sBox[i].toInt() and 0xFF) and 0xFF
 
-  int randomValue() {
-    this.i = ((this.i & 0xFF) + 1 & 0xFF);
-    this.j = ((this.j & 0xFF) + (this.sBox[this.i] & 0xFF) & 0xFF);
-    int k = this.sBox[this.i];
-    this.sBox[this.i] = this.sBox[this.j];
-    this.sBox[this.j] = (byte)k;
-    int m = (this.sBox[this.i] & 0xFF) + (this.sBox[this.j] & 0xFF) & 0xFF;
-    return (int) this.sBox[m];
-  }
+        val k = sBox[i].toInt()
+
+        sBox[i] = sBox[j]
+        sBox[j] = k.toByte()
+
+        val m: Int = (sBox[i].toInt() and 0xFF) + (sBox[j].toInt() and 0xFF) and 0xFF
+
+        return sBox[m].toInt()
+    }
 }

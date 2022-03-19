@@ -31,8 +31,7 @@ class Remcons(
             "Server 2000 SP3 or later and Windows 2003 or later. Linux users should enable the High-Performance " +
             "Mouse option once the HP iLO2 High-Performance Mouse for Linux driver is installed."
 
-        // TODO remove annotation once all classes are kotlin
-        @JvmField
+
         var prop: Properties? = null
 
         private val base64 = charArrayOf(
@@ -91,8 +90,8 @@ class Remcons(
     private var refresh: Button? = null
     private var rndmNums = IntArray(12)
     private var sendCtrlAltDel: Button? = null
-    private var sessionDecryptKey: ByteArray? = ByteArray(16)
-    private var sessionEncryptKey: ByteArray? = ByteArray(16)
+    private var sessionDecryptKey: ByteArray = ByteArray(16)
+    private var sessionEncryptKey: ByteArray = ByteArray(16)
     private var sessionEncryptionEnabled = false
     private var sessionIp: String? = null
     private var sessionKeyIndex = 0
@@ -152,10 +151,10 @@ class Remcons(
 
         localCursorLabel = Label("", 2)
 
-        val str = lt.selected
+        val str = lt.getSelected()
         if (lt.showgui) {
             kbdLocale = Choice()
-            val locales = lt.locales
+            val locales = lt.getLocales()
             for (locale in locales) {
                 kbdLocale!!.add(locale)
             }
@@ -249,7 +248,7 @@ class Remcons(
         println("Applet stopped...")
     }
 
-    override fun timeout(paramObject: Any) {
+    override fun timeout(callbackInfo: Any?) {
         if (session.uiDirty) {
             session.uiDirty = false
             timeoutCountdown = sessionTimeout
@@ -444,27 +443,27 @@ class Remcons(
                 try {
                     i = 0
                     while (i < 16) {
-                        sessionDecryptKey!![i] = str.substring(2 * i, 2 * i + 2).toInt(16).toByte()
+                        sessionDecryptKey[i] = str.substring(2 * i, 2 * i + 2).toInt(16).toByte()
                         i++
                     }
                 } catch (localNumberFormatException5: NumberFormatException) {
                     println("Couldn't parse INFOB: $localNumberFormatException5")
                 }
             } else {
-                sessionDecryptKey = null
+                sessionDecryptKey = byteArrayOf()
             }
 
             str = getParameter("INFOC")
             if (str != null) {
                 try {
                     for (j in 0..15) {
-                        sessionEncryptKey!![j] = str.substring(2 * j, 2 * j + 2).toInt(16).toByte()
+                        sessionEncryptKey[j] = str.substring(2 * j, 2 * j + 2).toInt(16).toByte()
                     }
                 } catch (localNumberFormatException6: NumberFormatException) {
                     println("Couldn't parse INFOC: $localNumberFormatException6")
                 }
             } else {
-                sessionEncryptKey = null
+                sessionEncryptKey = byteArrayOf()
             }
 
             str = getParameter("INFOD")

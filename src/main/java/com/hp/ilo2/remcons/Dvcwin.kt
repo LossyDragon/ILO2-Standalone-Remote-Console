@@ -1,233 +1,221 @@
-package com.hp.ilo2.remcons;
+package com.hp.ilo2.remcons
 
-import java.awt.Canvas;
-import java.awt.Color;
-import java.awt.Container;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.Graphics;
-import java.awt.Image;
-import java.awt.image.MemoryImageSource;
+import java.awt.*
+import java.awt.image.ColorModel
+import java.awt.image.DirectColorModel
+import java.awt.image.MemoryImageSource
+import java.lang.Exception
+import kotlin.jvm.Synchronized
 
 /**
  * Digital Video Capture Window
  */
-public class dvcwin extends Canvas implements Runnable {
-    private Image offscreenImage = null;
-    private Image firstImage = null;
+class Dvcwin(private var screenX: Int, private var screenY: Int) : Canvas(), Runnable {
 
-    private Graphics offscreenGc;
-
-    private MemoryImageSource imageSource;
-
-    private int screenX;
-    private int screenY;
-    private java.awt.image.ColorModel colorModel;
-    private int[] pixelBuffer;
-    private Thread screenUpdater = null;
-
-    protected static final int REFRESH_RATE = 60;
-
-    private int refreshCount = 0;
-    private int needToRefresh = 1;
-    private int needToRefreshR = 1;
-    private int needToRefreshW = 1;
-    private int frametime = 0;
-    private int paintCount = 0;
-    private boolean updaterRunning = false;
-
-
-    public dvcwin(int screenX, int screenY) {
-        this.screenX = screenX;
-        this.screenY = screenY;
-
-        this.colorModel = new java.awt.image.DirectColorModel(32, 0xff0000, 0xff00, 0xff, 0);
-
-        set_framerate(0);
+    companion object {
+        private const val REFRESH_RATE = 60
     }
 
-    @Override
-    public boolean isFocusable() {
-        return true;
+    private lateinit var pixelBuffer: IntArray
+    private val directColorModel: ColorModel
+    private val needToRefresh = 1
+    private val paintCount = 0
+    private val refreshCount = 0
+    private var firstImage: Image? = null
+    private var frametime = 0
+    private var imageSource: MemoryImageSource? = null
+    private var needToRefreshR = 1
+    private var needToRefreshW = 1
+    private var offscreenGc: Graphics? = null
+    private var offscreenImage: Image? = null
+    private var screenUpdater: Thread? = null
+    private var updaterRunning = false
+
+    init {
+        directColorModel = DirectColorModel(32, 0xff0000, 0xff00, 0xff, 0)
+        setFramerate(0)
     }
 
-    @Override
-    public void addNotify() {
-        super.addNotify();
+    override fun isFocusable(): Boolean {
+        return true
+    }
 
-        if (this.offscreenImage == null) {
-            this.offscreenImage = createImage(this.screenX, this.screenY);
+    override fun addNotify() {
+        super.addNotify()
+
+        if (offscreenImage == null) {
+            offscreenImage = createImage(screenX, screenY)
         }
     }
 
-    public boolean repaint_it(boolean paramInt) {
-        boolean shouldRepaint = false;
+    fun repaintIt(paramInt: Boolean): Boolean {
+        var shouldRepaint = false
+
         if (paramInt) {
-            this.needToRefreshW += 1;
+            needToRefreshW += 1
         } else {
-            int i = this.needToRefreshW;
-            if (this.needToRefreshR != i) {
-                this.needToRefreshR = i;
-                shouldRepaint = true;
+            val i = needToRefreshW
+            if (needToRefreshR != i) {
+                needToRefreshR = i
+                shouldRepaint = true
             }
         }
-        return shouldRepaint;
+
+        return shouldRepaint
     }
 
-    @Override
-    public void paint(Graphics g) {
+    override fun paint(g: Graphics?) {
+
         if (g == null) {
-            System.out.println("dvcwin.paint() g is null");
-            return;
+            println("dvcwin.paint() g is null")
+            return
         }
 
-        if (this.offscreenImage != null) {
-            g.drawImage(this.offscreenImage, 0, 0, this);
+        if (offscreenImage != null) {
+            g.drawImage(offscreenImage, 0, 0, this)
         }
     }
 
-    @Override
-    public void update(Graphics paramGraphics) {
-        if (this.offscreenImage == null) {
-            this.offscreenImage = createImage(getSize().width, getSize().height);
-            this.offscreenGc = this.offscreenImage.getGraphics();
+    override fun update(paramGraphics: Graphics) {
+        if (offscreenImage == null) {
+            offscreenImage = createImage(size.width, size.height)
+            offscreenGc = offscreenImage!!.graphics
         }
 
-        if (this.firstImage != null) {
-            this.offscreenGc.drawImage(this.firstImage, 0, 0, this);
+        if (firstImage != null) {
+            offscreenGc!!.drawImage(firstImage, 0, 0, this)
         }
-        paramGraphics.drawImage(this.offscreenImage, 0, 0, this);
+
+        paramGraphics.drawImage(offscreenImage, 0, 0, this)
     }
 
-
-    public void paste_array(int[] paramArrayOfInt, int paramInt1, int paramInt2, int paramInt3) {
-        int j;
-
-        if (paramInt2 + 16 > this.screenY) {
-            j = this.screenY - paramInt2;
+    fun pasteArray(paramArrayOfInt: IntArray, paramInt1: Int, paramInt2: Int, paramInt3: Int) {
+        val j: Int = if (paramInt2 + 16 > screenY) {
+            screenY - paramInt2
         } else {
-            j = 16;
+            16
         }
-        for (int i = 0; i < j; i++) {
+
+        for (i in 0 until j) {
             try {
-                System.arraycopy(paramArrayOfInt, i * 16, this.pixelBuffer, (paramInt2 + i) * this.screenX + paramInt1, paramInt3);
-            } catch (Exception localException) {
-                return;
+                System.arraycopy(paramArrayOfInt, i * 16, pixelBuffer, (paramInt2 + i) * screenX + paramInt1, paramInt3)
+            } catch (localException: Exception) {
+                return
             }
         }
 
-        this.imageSource.newPixels(paramInt1, paramInt2, paramInt3, 16, false);
+        imageSource!!.newPixels(paramInt1, paramInt2, paramInt3, 16, false)
     }
 
-    public void set_abs_dimensions(int width, int height) {
-        if ((width != this.screenX) || (height != this.screenY)) {
-            synchronized (this) {
-                this.screenX = width;
-                this.screenY = height;
+    fun setAbsDimensions(width: Int, height: Int) {
+        if (width != screenX || height != screenY) {
+            synchronized(this) {
+                screenX = width
+                screenY = height
             }
 
-            this.offscreenImage = null;
+            offscreenImage = null
+            pixelBuffer = IntArray(screenX * screenY)
+            imageSource = MemoryImageSource(screenX, screenY, directColorModel, pixelBuffer, 0, screenX)
+            imageSource!!.setAnimated(true)
+            imageSource!!.setFullBufferUpdates(false)
+            firstImage = createImage(imageSource)
 
-            this.pixelBuffer = new int[this.screenX * this.screenY];
+            invalidate()
 
-            this.imageSource = new MemoryImageSource(this.screenX, this.screenY, this.colorModel, this.pixelBuffer, 0, this.screenX);
-
-            this.imageSource.setAnimated(true);
-            this.imageSource.setFullBufferUpdates(false);
-            this.firstImage = createImage(this.imageSource);
-
-            invalidate();
-
-            Container parent = getParent();
+            var parent = parent
             if (parent != null) {
-                while (parent.getParent() != null) {
-                    parent.invalidate();
-                    parent = parent.getParent();
+                while (parent!!.parent != null) {
+                    parent.invalidate()
+                    parent = parent.parent
                 }
-                parent.invalidate();
-                parent.validate();
+                parent.invalidate()
+                parent.validate()
             }
-            System.gc();
+
+            System.gc()
         }
     }
 
-    @Override
-    public Dimension getPreferredSize() {
-        Dimension localDimension;
-
-        synchronized (this) {
-            localDimension = new Dimension(this.screenX, this.screenY);
-        }
-        return localDimension;
+    override fun getPreferredSize(): Dimension {
+        var localDimension: Dimension
+        synchronized(this) { localDimension = Dimension(screenX, screenY) }
+        return localDimension
     }
 
-    @Override
-    public Dimension getMinimumSize() {
-        return getPreferredSize();
+    override fun getMinimumSize(): Dimension {
+        return preferredSize
     }
 
-    void show_text(String text) {
-        if (this.screenUpdater == null) {
-            return;
+    fun showText(text: String) {
+        if (screenUpdater == null) {
+            return
         }
 
-        if ((this.screenX != 640) || (this.screenY != 100)) {
-            set_abs_dimensions(640, 100);
-            this.imageSource = null;
-            this.firstImage = null;
-            this.offscreenImage = null;
-            this.offscreenImage = createImage(this.screenX, this.screenY);
+        if (screenX != 640 || screenY != 100) {
+            setAbsDimensions(640, 100)
+            imageSource = null
+            firstImage = null
+            offscreenImage = null
+            offscreenImage = createImage(screenX, screenY)
         }
 
-        Graphics g = this.offscreenImage.getGraphics();
+        val g = offscreenImage!!.graphics
 
-        new Color(0);
-        g.setColor(Color.black);
-        g.fillRect(0, 0, this.screenX, this.screenY);
-        Font localFont = new Font("Courier", Font.PLAIN, 20);
-        new Color(0);
-        g.setColor(Color.white);
-        g.setFont(localFont);
-        g.drawString(text, 10, 20);
-        g.drawImage(this.offscreenImage, 0, 0, this);
-        g.dispose();
-        System.gc();
-        repaint();
+        Color(0)
+
+        g.color = Color.black
+        g.fillRect(0, 0, screenX, screenY)
+
+        val localFont = Font("Courier", Font.PLAIN, 20)
+
+        Color(0)
+
+        g.color = Color.white
+        g.font = localFont
+        g.drawString(text, 10, 20)
+        g.drawImage(offscreenImage, 0, 0, this)
+        g.dispose()
+
+        System.gc()
+
+        repaint()
     }
 
-    protected void set_framerate(int rate) {
-        if (rate > 0) {
-            this.frametime = 1000 / rate;
-        } else {
-            this.frametime = 1000 / 15;
-        }
+    fun setFramerate(rate: Int) {
+        frametime = if (rate > 0)  1000 / rate else 1000 / 15
+        println("Framerate: $rate / Frametime: $frametime")
     }
 
-    public void run() {
-        while (this.updaterRunning) {
+    override fun run() {
+        while (updaterRunning) {
             try {
-                Thread.sleep(this.frametime);
-            } catch (InterruptedException ignored) {
+                Thread.sleep(frametime.toLong())
+            } catch (ignored: InterruptedException) {
+                /* no-op */
             }
 
-            if (repaint_it(false)) {
-                repaint();
+            if (repaintIt(false)) {
+                repaint()
             }
         }
     }
 
-    public synchronized void start_updates() {
-        this.screenUpdater = new Thread(this, "dvcwin");
-        this.updaterRunning = true;
-        this.screenUpdater.start();
+    @Synchronized
+    fun startUpdates() {
+        screenUpdater = Thread(this, "dvcwin")
+        updaterRunning = true
+        screenUpdater!!.start()
     }
 
-    public synchronized void stop_updates() {
-        if ((this.screenUpdater != null) && (this.screenUpdater.isAlive())) {
-            this.updaterRunning = false;
+    @Synchronized
+    fun stopUpdates() {
+        if (screenUpdater != null && screenUpdater!!.isAlive) {
+            updaterRunning = false
         }
-        this.screenX = 0;
-        this.screenY = 0;
-        this.screenUpdater = null;
+
+        screenX = 0
+        screenY = 0
+        screenUpdater = null
     }
 }

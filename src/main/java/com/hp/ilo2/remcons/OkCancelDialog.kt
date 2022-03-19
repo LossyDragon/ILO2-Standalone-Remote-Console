@@ -1,103 +1,109 @@
-package com.hp.ilo2.remcons;
+package com.hp.ilo2.remcons
 
-import java.awt.*;
-import java.awt.event.*;
+import java.awt.*
+import java.awt.event.ActionEvent
+import java.awt.event.ActionListener
+import java.awt.event.WindowEvent
+import java.awt.event.WindowListener
 
+@Suppress("unused")
+class OkCancelDialog : Dialog, ActionListener, WindowListener {
 
-public class OkCancelDialog extends java.awt.Dialog implements ActionListener, WindowListener {
-    private TextArea txt;
-    private Button ok;
-    private Button cancel;
-    private boolean rc;
+    private lateinit var cancel: Button
+    private lateinit var ok: Button
+    private lateinit var txt: TextArea
+    private var rc = false
 
-    public OkCancelDialog(Frame owner, String message) {
-        super(owner, "Notice!", true);
-        ui_init(message);
+    constructor(owner: Frame?, message: String) : super(owner, "Notice!", true) {
+        uiInit(message)
     }
 
-    public OkCancelDialog(String message, boolean isModal) {
-        super(new Frame(), "Notice!", isModal);
-        ui_init(message);
+    constructor(message: String, isModal: Boolean) : super(Frame(), "Notice!", isModal) {
+        uiInit(message)
     }
 
-    private void ui_init(String message) {
-        this.txt = new TextArea(message, 5, 40, 1);
-        this.txt.setEditable(false);
+    private fun uiInit(message: String) {
+        txt = TextArea(message, 5, 40, 1)
+        txt.isEditable = false
 
-        this.ok = new Button("    Ok    ");
-        this.ok.addActionListener(this);
+        ok = Button("    Ok    ")
+        ok.addActionListener(this)
 
-        this.cancel = new Button("Cancel");
-        this.cancel.addActionListener(this);
+        cancel = Button("Cancel")
+        cancel.addActionListener(this)
 
-        setBackground(Color.lightGray);
-        setSize(360, 160);
+        background = Color.lightGray
 
-        GridBagLayout gridBagLayout = new GridBagLayout();
-        GridBagConstraints constraints = new GridBagConstraints();
+        setSize(360, 160)
 
-        setLayout(gridBagLayout);
+        val gridBagLayout = GridBagLayout()
+        layout = gridBagLayout
 
-        constraints.fill = 2;
-        constraints.anchor = 17;
-        constraints.weightx = 100.0D;
-        constraints.weighty = 100.0D;
-        constraints.gridx = 0;
-        constraints.gridy = 0;
-        constraints.gridwidth = 1;
-        constraints.gridheight = 1;
-        add(this.txt, constraints);
+        val constraints = GridBagConstraints().apply {
+            fill = 2
+            anchor = 17
+            weightx = 100.0
+            weighty = 100.0
+            gridx = 0
+            gridy = 0
+            gridwidth = 1
+            gridheight = 1
+        }
 
-        Panel buttonsPanel = new Panel();
-        buttonsPanel.setLayout(new FlowLayout(FlowLayout.RIGHT));
-        buttonsPanel.add(this.ok);
-        buttonsPanel.add(this.cancel);
+        add(txt, constraints)
 
-        constraints.fill = 0;
-        constraints.anchor = 13;
-        constraints.gridx = 0;
-        constraints.gridy = 1;
-        constraints.gridwidth = 1;
+        val buttonsPanel = Panel().apply {
+            layout = FlowLayout(FlowLayout.RIGHT)
+            add(ok)
+            add(cancel)
+        }
 
-        add(buttonsPanel, constraints);
-        addWindowListener(this);
+        constraints.fill = 0
+        constraints.anchor = 13
+        constraints.gridx = 0
+        constraints.gridy = 1
+        constraints.gridwidth = 1
 
-        setVisible(true);
+        add(buttonsPanel, constraints)
+        addWindowListener(this)
+
+        isVisible = true
+        isResizable = false
     }
 
-    public void actionPerformed(ActionEvent event) {
-        if (event.getSource() == this.ok) {
-            dispose();
-            this.rc = true;
-        } else if (event.getSource() == this.cancel) {
-            dispose();
-            this.rc = false;
+    override fun actionPerformed(event: ActionEvent) {
+        if (event.source == ok) {
+            dispose()
+            rc = true
+        } else if (event.source == cancel) {
+            dispose()
+            rc = false
         }
     }
 
-    public boolean result() {
-        return this.rc;
+    fun result(): Boolean {
+        return rc
     }
 
-    public void append(String message) {
-        this.txt.append(message);
-        this.txt.repaint();
+    fun append(message: String?) {
+        txt.append(message)
+        txt.repaint()
     }
 
-    public void windowClosing(WindowEvent event) {
-        dispose();
-        this.rc = false;
+    override fun windowClosing(event: WindowEvent) {
+        dispose()
+        rc = false
     }
 
-    public void windowOpened(WindowEvent event) {}
+    override fun windowOpened(event: WindowEvent) {}
 
-    public void windowDeiconified(WindowEvent event) {}
+    override fun windowDeiconified(event: WindowEvent) {}
 
-    public void windowIconified(WindowEvent event) {}
+    override fun windowIconified(event: WindowEvent) {}
 
-    public void windowActivated(WindowEvent event) {}
+    override fun windowActivated(event: WindowEvent) {}
 
-    public void windowClosed(WindowEvent event) {}
+    override fun windowClosed(event: WindowEvent) {}
 
-    public void windowDeactivated(WindowEvent event) {}
+    override fun windowDeactivated(event: WindowEvent) {}
 }

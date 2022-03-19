@@ -176,6 +176,9 @@ class Main {
         hmap["INFOO"] = res.split("infoo=\"").toTypedArray()[1].split("\";").toTypedArray()[0]
         hmap["CABBASE"] = res.split("<PARAM NAME=CABBASE VALUE=").toTypedArray()[1].split(">\"").toTypedArray()[0]
 
+        // Debug
+        hmap["DEBUG"] = "true"
+
         println("CABBASE = " + hmap["CABBASE"])
     }
 
