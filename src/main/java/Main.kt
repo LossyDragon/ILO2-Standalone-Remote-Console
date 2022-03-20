@@ -44,18 +44,17 @@ class Main {
     private val cookieManager = CookieManager()
     private val hmap = HashMap<String, String>()
 
-    private var loginURL = ""
     private var sessionIndex = ""
     private var sessionKey = ""
     private var supercookie = ""
 
-    private fun setHostname(name: String) {
-        hostname = name
-        loginURL = "https://$hostname/login.htm"
-    }
+    private val loginURL: String
+        get() = "https://$hostname/login.htm"
 
     @Throws(Exception::class)
     private fun stage1() {
+        println("-- Stage 1 --")
+
         SSLUtilities.trustAllHostnames()
         SSLUtilities.trustAllHttpsCertificates()
 
@@ -93,6 +92,8 @@ class Main {
 
     @Throws(Exception::class)
     private fun stage2() {
+        println("-- Stage 2 --")
+
         SSLUtilities.trustAllHostnames()
         SSLUtilities.trustAllHttpsCertificates()
 
@@ -132,6 +133,8 @@ class Main {
 
     @Throws(Exception::class)
     private fun stage3() {
+        println("-- Stage 3 --")
+
         SSLUtilities.trustAllHostnames()
         SSLUtilities.trustAllHttpsCertificates()
 
@@ -177,13 +180,15 @@ class Main {
         hmap["CABBASE"] = res.split("<PARAM NAME=CABBASE VALUE=").toTypedArray()[1].split(">\"").toTypedArray()[0]
 
         // Debug
-        hmap["DEBUG"] = "true"
+        // hmap["DEBUG"] = "true"
 
         println("CABBASE = " + hmap["CABBASE"])
     }
 
     @Throws(Exception::class)
     fun isValid(cookie: String?): Boolean {
+        println("-- Checking if Datastore is valid --")
+
         CookieHandler.setDefault(cookieManager)
 
         val url = "https://$hostname/ie_index.htm"
@@ -209,7 +214,10 @@ class Main {
         bufferedReader.close()
 
         val res = response.toString()
-        return !(res.contains("Login Delay") || res.contains("Integrated Lights-Out 2 Login"))
+        val result = !(res.contains("Login Delay") || res.contains("Integrated Lights-Out 2 Login"))
+
+        println("isValid: $result")
+        return result
     }
 
     fun main(args: Array<String>) {
@@ -232,7 +240,7 @@ class Main {
             }
             3 -> {
                 // <Hostname or IP> <Username> <Password>
-                setHostname(args[0])
+                hostname = args[0]
                 username = args[1]
                 password = args[2]
             }
@@ -248,14 +256,17 @@ class Main {
 
         if (configPath.isPresent) {
             try {
-                FileInputStream(configPath.get()).use { fis ->
+                val config = configPath.get()
+                FileInputStream(config).use { fis ->
                     Properties().run {
-                        load(fis)
-                        setHostname(getProperty("hostname"))
-                        username = getProperty("username")
-                        password = getProperty("password")
+                        this.load(fis)
+                        hostname = this.getProperty("hostname")
+                        username = this.getProperty("username")
+                        password = this.getProperty("password")
                     }
                 }
+
+                println("Config: $config")
             } catch (e: Exception) {
                 System.err.println("Error in reading/parsing config file!")
                 e.printStackTrace()
@@ -283,6 +294,7 @@ class Main {
                         stage1()
                         stage2()
                     } else {
+                        println("Datastore valid")
                         supercookie = lastline
                     }
                 }

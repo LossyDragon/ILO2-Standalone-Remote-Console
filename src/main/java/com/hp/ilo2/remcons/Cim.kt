@@ -1,5 +1,6 @@
 package com.hp.ilo2.remcons
 
+import com.hp.ilo2.virtdevs.VirtDevs
 import java.awt.Cursor
 import java.awt.Image
 import java.awt.Point
@@ -11,6 +12,8 @@ import java.io.IOException
 import java.lang.Exception
 import java.lang.StringBuilder
 import java.security.NoSuchAlgorithmException
+import javax.swing.JFrame
+import javax.swing.WindowConstants
 import kotlin.jvm.Synchronized
 
 /**
@@ -42,6 +45,23 @@ class Cim : Telnet(), MouseSyncListener {
         screen.addMouseListener(mouseSync)
         screen.addMouseMotionListener(mouseSync)
         mouseSync.setListener(this)
+    }
+
+    fun openVirtDevices() {
+        JFrame().apply {
+            defaultCloseOperation = WindowConstants.DISPOSE_ON_CLOSE
+            isVisible = true
+            setBounds(0, 0, 768, 480)
+            title = "Virtual Media"
+        }.also {
+            val virtdev = VirtDevs()
+
+            // TODO add arguments
+
+            it.contentPane.add(virtdev)
+            virtdev.init()
+            virtdev.start()
+        }
     }
 
     fun setupEncryption(key: ByteArray, keyIndex: Int) {
@@ -1167,8 +1187,7 @@ class Cim : Telnet(), MouseSyncListener {
                 18,
                 19,
                 23,
-                25 -> {
-                }
+                25 -> Unit
                 0 -> {
                     cacheReset()
                     dvc_pixel_count = 0
@@ -1269,7 +1288,7 @@ class Cim : Telnet(), MouseSyncListener {
         return m
     }
 
-    public override fun processDvc(paramChar: Char): Boolean {
+    override fun processDvc(paramChar: Char): Boolean {
         if (dvc_reversal[0xff] == 0) {
             println(" Version 20050808154652 ")
             initReversal()

@@ -89,6 +89,7 @@ class Remcons(
     private var refresh: Button? = null
     private var rndmNums = IntArray(12)
     private var sendCtrlAltDel: Button? = null
+    private var virtdev: Button? = null
     private var sessionDecryptKey: ByteArray = ByteArray(16)
     private var sessionEncryptKey: ByteArray = ByteArray(16)
     private var sessionEncryptionEnabled = false
@@ -119,6 +120,9 @@ class Remcons(
 
         termSvcs = Button("")
         termSvcs!!.addActionListener(this)
+
+        virtdev = Button("")
+        virtdev!!.addActionListener(this)
 
         if (tsParam and 0x1 == 0) {
             termSvcs!!.isEnabled = false
@@ -176,6 +180,7 @@ class Remcons(
         }
 
         session.setSigColors(rndmNums)
+
         if (debugMsg) {
             session.enableDebug()
         } else {
@@ -192,6 +197,7 @@ class Remcons(
             add(hpMouse)
             add(localCursorLabel)
             add(localCursor)
+            add(virtdev)
         }
 
         if (kbdLocale != null) {
@@ -272,11 +278,13 @@ class Remcons(
             hpMouseLabel!!.text = "High Performance Mouse"
             refresh!!.label = "Refresh"
             sendCtrlAltDel!!.label = "Ctrl-Alt-Del"
+            virtdev!!.label = "Virtual Devices"
             termSvcs!!.label = termSvcsLabel
         } else {
             altLockLabel!!.text = "Altキーロック"
             refresh!!.label = "リフレッシュ"
             sendCtrlAltDel!!.label = "Ctrl-Alt-Del"
+            virtdev!!.label = "Virtual Devices"
             termSvcs!!.label = termSvcsLabel
         }
     }
@@ -362,6 +370,9 @@ class Remcons(
             }
             termSvcs -> {
                 session.startRdp()
+            }
+            virtdev -> {
+                session.openVirtDevices()
             }
         }
     }
